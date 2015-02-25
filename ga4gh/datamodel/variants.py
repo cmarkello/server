@@ -47,6 +47,7 @@ class WormtableVariantSet(VariantSet):
     within a chromosome.
     """
     # Positions of the fixed columns within a row
+    ROWID_COL = 0
     CHROM_COL = 1
     POS_COL = 2
     ID_COL = 3
@@ -67,8 +68,16 @@ class WormtableVariantSet(VariantSet):
         self._variantSetId = variantSetId
         self._wtDir = wtDir
         self._table = wt.open_table(wtDir)
+        columns = self._table.columns()
+        count = 0
+        #for column in columns:
+        #    print(column.get_name())
+        #    count += 1
+        #    if count > 10:
+        #        break
         self._chromPosIndex = self._table.open_index("CHROM+POS")
         self._chromIdIndex = self._table.open_index("CHROM+ID")
+        self._chromRowIdIndex = self._table.open_index("CHROM+row_id")
         self._sampleCols = {}
         self._sampleNames = []
         self._infoCols = []
@@ -191,7 +200,7 @@ class WormtableVariantSet(VariantSet):
         return variant
 
     def getVariants(self, referenceName, startPosition, endPosition,
-                    variantName, callSetIds):
+                    variantName, callSetIds, id):
         """
         Returns an iterator over the specified variants. The parameters
         correspond to the attributes of a GASearchVariantsRequest object.
@@ -219,7 +228,20 @@ class WormtableVariantSet(VariantSet):
                 sampleRowPositionsList.append(currentRowPosition)
                 currentRowPosition += 1
             sampleRowPositions[callSetId] = sampleRowPositionsList
-        if variantName is None:
+        if id:
+            id_cursor = long(id.split('.')[1])
+            cursor = self._chromRowIdIndex.cursor(readCols, (chrom, id_cursor))
+            for row in cursor:
+                # TODO issues with having several names for a variant?
+                # The result must still be within the range and must match
+                # the specified name exactly. The cursor is positioned at
+                # the first row >= the specified key.
+                if (startPosition <= row[self.POS_COL] < endPosition and
+                        row[self.ROWID_COL] == id_cursor):
+                    yield self.convertVariant(row, sampleRowPositions)
+                else:
+                    break
+        elif variantName is None:
             cursor = self._chromPosIndex.cursor(
                 readCols, (chrom, startPosition), (chrom, endPosition))
             for row in cursor:

@@ -129,7 +129,7 @@ class Backend(object):
                 variantSet = self._variantSetIdMap[variantSetId]
                 iterator = variantSet.getVariants(
                     request.referenceName, startPosition, request.end,
-                    request.variantName, request.callSetIds)
+                    request.variantName, request.callSetIds, request.id)
                 for variant in iterator:
                     nextPageToken = "{0}:{1}".format(
                         variantSetIndex, variant.start + 1)

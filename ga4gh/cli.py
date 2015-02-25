@@ -142,6 +142,7 @@ class VariantSearchRunner(AbstractSearchRunner):
         request.variantName = args.variantName
         request.start = args.start
         request.end = args.end
+        request.id = args.id
         if self.usingWorkaroundsFor(client.HTTPClient.workaroundGoogle):
             request.maxCalls = args.maxCalls
         if args.callSetIds == []:
@@ -307,6 +308,11 @@ def addVariantSearchOptions(parser):
             with these IDs. Pass in IDs as a comma separated list (no spaces),
             or '*' (with the single quotes!) to indicate 'all call sets'.
             Omit this option to indicate 'no call sets'.
+            """)
+    parser.add_argument(
+        "--id", "-i", default=None,
+        help="""Return specific variant that holds this primary key id.
+            Id is formatted as the variantSetId.referenceSetUniqueRowNumber.
             """)
     addStartArgument(parser)
     addEndArgument(parser)

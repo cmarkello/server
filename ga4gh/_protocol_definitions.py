@@ -1424,7 +1424,8 @@ This request maps to the body of `POST /variants/search` as JSON.
 "name": "referenceName"}, {"doc": "", "type": "long", "name": "start"},
 {"doc": "", "type": "long", "name": "end"}, {"default": null, "doc": "",
 "type": ["null", "int"], "name": "pageSize"}, {"default": null, "doc":
-"", "type": ["null", "string"], "name": "pageToken"}], "doc": ""}
+"", "type": ["null", "string"], "name": "pageToken"}, {"default": null,
+"doc": "", "type": "string", "name": "id"}], "doc": ""}
 """
     schema = avro.schema.parse(_schemaSource)
     requiredFields = set([
@@ -1444,7 +1445,7 @@ This request maps to the body of `POST /variants/search` as JSON.
         return embeddedTypes[fieldName]
 
     __slots__ = ['callSetIds', 'end', 'pageSize', 'pageToken', 'referenceName',
-                 'start', 'variantName', 'variantSetIds']
+                 'start', 'variantName', 'variantSetIds', 'id']
 
     def __init__(self):
         self.callSetIds = []
@@ -1455,6 +1456,7 @@ This request maps to the body of `POST /variants/search` as JSON.
         self.start = None
         self.variantName = None
         self.variantSetIds = []
+        self.id = None
 
 
 class GASearchVariantsResponse(ProtocolElement):
