@@ -14,6 +14,38 @@ import pysam
 import wormtable as wt
 
 import ga4gh.protocol as protocol
+import ga4gh.backend_exceptions as backendExceptions
+
+
+def convertVCFPhaseset(vcfPhaseset):
+    """
+    Parses the VCF phaseset string
+    """
+    if vcfPhaseset is not None and vcfPhaseset != ".":
+        phaseset = vcfPhaseset
+    else:
+        phaseset = "*"
+    return phaseset
+
+
+def convertVCFGenotype(vcfGenotype, vcfPhaseset):
+    """
+    Parses the VCF genotype and VCF phaseset strings
+    """
+    phaseset = None
+    if vcfGenotype is not None:
+        delim = "/"
+        if "|" in vcfGenotype:
+            delim = "|"
+            phaseset = convertVCFPhaseset(vcfPhaseset)
+        if "." in vcfGenotype:
+            genotype = [-1]
+        else:
+            genotype = map(int, vcfGenotype.split(delim))
+    else:
+        genotype = [-1]
+
+    return genotype, phaseset
 
 
 class VariantSet(object):
@@ -21,6 +53,16 @@ class VariantSet(object):
     Class representing a single VariantSet in the GA4GH data model.
     """
     # TODO abstract details shared by wormtable and tabix based backends.
+
+    def toProtocolElement(self):
+        """
+        Converts this VariantSet into its GA4GH protocol equivalent.
+        """
+        protocolElement = protocol.GAVariantSet()
+        protocolElement.id = self._variantSetId  # TODO should be self._id
+        protocolElement.datasetId = "NotImplemented"
+        protocolElement.metadata = self.getMetadata()
+        return protocolElement
 
 
 class WormtableVariantSet(VariantSet):
@@ -117,37 +159,6 @@ class WormtableVariantSet(VariantSet):
             ret = [str(value)]
         return ret
 
-    @staticmethod
-    def convertPhaseset(vcfPhaseset):
-        """
-        Parses the VCF phaseset string
-        """
-        if vcfPhaseset is not None and vcfPhaseset != ".":
-            phaseset = vcfPhaseset
-        else:
-            phaseset = "*"
-        return phaseset
-
-    @staticmethod
-    def convertGenotype(vcfGenotype, vcfPhaseset):
-        """
-        Parses the VCF genotype and VCF phaseset strings
-        """
-        phaseset = None
-        if vcfGenotype is not None:
-            delim = "/"
-            if "|" in vcfGenotype:
-                delim = "|"
-                phaseset = WormtableVariantSet.convertPhaseset(vcfPhaseset)
-            if "." in vcfGenotype:
-                genotype = [-1]
-            else:
-                genotype = map(int, vcfGenotype.split(delim))
-        else:
-            genotype = [-1]
-
-        return genotype, phaseset
-
     def convertVariant(self, row, sampleRowPositions):
         """
         Converts the specified wormtable row into a GAVariant object including
@@ -194,8 +205,8 @@ class WormtableVariantSet(VariantSet):
                         # Missing values are not included in the info array
                         call.info[info] = self.convertInfoField(
                             row[rowPosition])
-            call.genotype, call.phaseset = self.convertGenotype(genotype,
-                                                                phaseset)
+            call.genotype, call.phaseset = convertVCFGenotype(genotype,
+                                                              phaseset)
             variant.calls.append(call)
         return variant
 
@@ -217,7 +228,11 @@ class WormtableVariantSet(VariantSet):
         else:
             readCols = self._table.columns()[:self._firstSamplePosition]
             for callSetId in callSetIds:
-                cols = [col for name, col in self._sampleCols[callSetId]]
+                try:
+                    cols = [col for name, col in self._sampleCols[callSetId]]
+                except KeyError:
+                    raise backendExceptions.CallSetNotInVariantSetException(
+                        callSetId, self._variantSetId)
                 readCols.extend(cols)
         # Now we get the row positions for the sample columns
         sampleRowPositions = {}

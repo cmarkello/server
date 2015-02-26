@@ -9,11 +9,12 @@ from __future__ import unicode_literals
 
 import unittest
 
-from tests.test_backends import WormtableTestFixture
+from tests.unit.test_backends import WormtableTestFixture
 import ga4gh.backend as backend
 import ga4gh.datamodel.variants as variants
 import ga4gh.frontend as frontend
 import ga4gh.protocol as protocol
+import tests.utils as utils
 
 
 class EndToEndWormtableTest(unittest.TestCase):
@@ -42,15 +43,16 @@ class EndToEndWormtableTest(unittest.TestCase):
         expectedIds = ['example_1', 'example_2', 'example_3', 'example_4']
         request = protocol.GASearchVariantSetsRequest()
         request.pageSize = len(expectedIds)
-        response = self.sendJSONPostRequest('/variantsets/search',
-                                            request.toJSONString())
+        path = utils.applyVersion('/variantsets/search')
+        response = self.sendJSONPostRequest(
+            path, request.toJsonString())
 
         self.assertEqual(200, response.status_code)
 
-        responseData = protocol.GASearchVariantSetsResponse.fromJSONString(
+        responseData = protocol.GASearchVariantSetsResponse.fromJsonString(
             response.data)
         self.assertTrue(protocol.GASearchVariantSetsResponse.validate(
-            responseData.toJSONDict()))
+            responseData.toJsonDict()))
 
         self.assertIsNone(responseData.nextPageToken)
         self.assertEqual(len(expectedIds), len(responseData.variantSets))
@@ -70,23 +72,25 @@ class EndToEndWormtableTest(unittest.TestCase):
         request.variantSetIds = expectedIds
 
         # Request windows is too small, no results
-        response = self.sendJSONPostRequest('/variants/search',
-                                            request.toJSONString())
+        path = utils.applyVersion('/variants/search')
+        response = self.sendJSONPostRequest(
+            path, request.toJsonString())
         self.assertEqual(200, response.status_code)
-        responseData = protocol.GASearchVariantsResponse.fromJSONString(
+        responseData = protocol.GASearchVariantsResponse.fromJsonString(
             response.data)
         self.assertIsNone(responseData.nextPageToken)
         self.assertEqual([], responseData.variants)
 
         # Larger request window, expect results
         request.end = 2 ** 16
-        response = self.sendJSONPostRequest('/variants/search',
-                                            request.toJSONString())
+        path = utils.applyVersion('/variants/search')
+        response = self.sendJSONPostRequest(
+            path, request.toJsonString())
         self.assertEqual(200, response.status_code)
-        responseData = protocol.GASearchVariantsResponse.fromJSONString(
+        responseData = protocol.GASearchVariantsResponse.fromJsonString(
             response.data)
         self.assertTrue(protocol.GASearchVariantsResponse.validate(
-            responseData.toJSONDict()))
+            responseData.toJsonDict()))
         self.assertNotEqual([], responseData.variants)
 
         # Verify all results are in the correct range, set and reference

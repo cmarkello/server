@@ -9,7 +9,9 @@ from __future__ import unicode_literals
 
 import re
 import time
+import pstats
 import argparse
+import cProfile
 
 import ga4gh.backend
 import ga4gh.protocol as protocol
@@ -28,6 +30,18 @@ class HeapProfilerBackend(ga4gh.backend.Backend):
 
     def endProfile(self):
         print(self.profiler.heap())
+
+
+class CpuProfilerBackend(ga4gh.backend.Backend):
+    def __init__(self, dataDir, variantSetClass):
+        super(CpuProfilerBackend, self).__init__(dataDir, variantSetClass)
+        self.profiler = cProfile.Profile()
+
+    def startProfile(self):
+        self.profiler.enable()
+
+    def endProfile(self):
+        self.profiler.disable()
 
 
 def _heavyQuery():
@@ -58,7 +72,7 @@ def timeOneSearch(queryString):
 
 def extractNextPageToken(resultString):
     """
-    Calling GASearchVariantsResponse.fromJSONString() can be slower
+    Calling GASearchVariantsResponse.fromJsonString() can be slower
     than doing the variant search in the first place; instead we use
     a regexp to extract the next page token.
     """
@@ -77,7 +91,7 @@ def benchmarkOneQuery(request, repeatLimit=3, pageLimit=3):
     processing to prepare queries or parse responses.
     """
     times = []
-    queryString = request.toJSONString()
+    queryString = request.toJsonString()
     for i in range(0, repeatLimit):
         resultString, elapsedTime = timeOneSearch(queryString)
         accruedTime = elapsedTime
@@ -87,7 +101,7 @@ def benchmarkOneQuery(request, repeatLimit=3, pageLimit=3):
         while token is not None and pageCount < pageLimit:
             pageRequest = request
             pageRequest.pageToken = token
-            pageRequestString = pageRequest.toJSONString()
+            pageRequestString = pageRequest.toJsonString()
             resultString, elapsedTime = timeOneSearch(pageRequestString)
             accruedTime += elapsedTime
             pageCount = pageCount + 1
@@ -106,9 +120,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="GA4GH reference server benchmark")
     parser.add_argument('--profile', default='none',
-                        choices=['none', 'heap'],
+                        choices=['none', 'heap', 'cpu'],
                         help='"heap" runs a heap profiler '
-                             'once inside the backend')
+                             'once inside the backend, '
+                             '"cpu" runs a cpu profiler.')
     parser.add_argument('--repeatLimit', type=int, default=3, metavar='N',
                         help='how many times to run each test case '
                              '(default: %(default)s)')
@@ -122,7 +137,14 @@ if __name__ == '__main__':
         backendClass = HeapProfilerBackend
         args.repeatLimit = 1
         args.pageLimit = 1
+    elif args.profile == 'cpu':
+        backendClass = CpuProfilerBackend
 
     backend = backendClass("ga4gh-example-data", variants.WormtableVariantSet)
 
     print(benchmarkOneQuery(_heavyQuery(), args.repeatLimit, args.pageLimit))
+
+    if args.profile == 'cpu':
+        stats = pstats.Stats(backend.profiler)
+        stats.sort_stats('time')
+        stats.print_stats(.25)
