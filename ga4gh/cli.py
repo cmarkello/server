@@ -531,6 +531,11 @@ def addVariantSearchOptions(parser):
             or '*' (with the single quotes!) to indicate 'all call sets'.
             Omit this option to indicate 'no call sets'.
             """)
+    parser.add_argument(
+        "--id", "-i", default=None,
+        help="""Return variant calls where the variant primary key
+            exactly matches this key name.
+            """)
     addStartArgument(parser)
     addEndArgument(parser)
     addPageSizeArgument(parser)
